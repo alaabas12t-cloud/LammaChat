@@ -1,0 +1,52 @@
+name: Build Lamma Chat APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download project
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Extract project
+        run: |
+          mkdir project
+          unzip -q LammaChat_Firebase_Ready.zip -d project
+
+      - name: Find Android project
+        id: find
+        run: |
+          GRADLEW=$(find project -name gradlew -type f | head -n 1)
+          if [ -z "$GRADLEW" ]; then
+            echo "gradlew not found"
+            exit 1
+          fi
+          chmod +x "$GRADLEW"
+          ROOT=$(dirname "$GRADLEW")
+          echo "root=$ROOT" >> "$GITHUB_OUTPUT"
+
+      - name: Add Firebase configuration
+        run: |
+          cp google-services.json "${{ steps.find.outputs.root }}/app/google-services.json"
+
+      - name: Build APK
+        working-directory: ${{ steps.find.outputs.root }}
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lamma-Chat-APK
+          path: ${{ steps.find.outputs.root }}/app/build/outputs/apk/debug/*.apk
